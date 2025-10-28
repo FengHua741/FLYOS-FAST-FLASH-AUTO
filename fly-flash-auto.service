@@ -1,0 +1,17 @@
+[Unit]
+Description=Fly-Flash Auto Programming Service
+After=network.target multi-user.target
+Wants=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/fly-flash-auto.sh
+RemainAfterExit=no
+User=root
+Group=root
+StandardOutput=journal
+StandardError=journal
+TimeoutStartSec=300
+
+[Install]
+WantedBy=multi-user.target

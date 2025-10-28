@@ -1,0 +1,15 @@
+[Unit]
+Description=Fly-Flash Web Status Server
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/home/fenghua/flash-web-server.py
+WorkingDirectory=/home/fenghua
+User=fenghua
+Group=fenghua
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
