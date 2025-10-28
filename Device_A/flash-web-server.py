@@ -253,14 +253,13 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             
             <script>
                 function resetStatus() {{
-                    if(confirm('确定要重置状态吗？这将清空所有日志和进度。')) {{
-                        fetch('/reset', {{method: 'POST'}})
-                            .then(response => {{
-                                if(response.ok) {{
-                                    window.location.reload();
-                                }}
-                            }});
-                    }}
+                    // 直接重置状态，无需确认
+                    fetch('/reset', {{method: 'POST'}})
+                        .then(response => {{
+                            if(response.ok) {{
+                                window.location.reload();
+                            }}
+                        }});
                 }}
                 
                 window.onload = function() {{
