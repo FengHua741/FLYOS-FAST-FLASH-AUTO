@@ -2,12 +2,8 @@
 echo "=== 部署设备B (烧录设备) ==="
 
 # 安装依赖
-echo "安装系统依赖..."
-sudo apt update
-sudo apt install -y python3 python3-pip
-
 echo "安装 Python 依赖..."
-sudo pip3 install requests
+pip install requests
 
 # 部署脚本
 echo "部署烧录脚本..."

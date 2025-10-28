@@ -10,14 +10,17 @@ import threading
 PORT = 8081
 STATUS_FILE = "/tmp/flash-status.json"
 
-current_status = {
+# 初始状态
+initial_status = {
     "status": "waiting",
     "step": "未开始",
     "progress": 0,
-    "log": ["系统就绪..."],
+    "log": ["系统就绪，等待烧录..."],
     "last_update": None,
     "device_info": None
 }
+
+current_status = initial_status.copy()
 
 class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
     def do_GET(self):
@@ -42,6 +45,13 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             log_text = "\n".join(current_status["log"][-50:])
             self.wfile.write(log_text.encode('utf-8'))
             
+        elif self.path == '/reset':
+            # 重置状态
+            self.reset_status()
+            self.send_response(302)
+            self.send_header('Location', '/')
+            self.end_headers()
+            
         else:
             self.send_error(404)
 
@@ -63,8 +73,28 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
                 print(f"Error processing update: {e}")
                 self.send_response(400)
                 self.end_headers()
+        elif self.path == '/reset':
+            # 通过POST请求重置状态
+            self.reset_status()
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
         else:
             self.send_error(404)
+
+    def reset_status(self):
+        global current_status
+        current_status = initial_status.copy()
+        current_status["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        try:
+            with open(STATUS_FILE, 'w', encoding='utf-8') as f:
+                json.dump(current_status, f, ensure_ascii=False, indent=2)
+        except:
+            pass
+        
+        print("状态已重置")
 
     def update_status(self, data):
         global current_status
@@ -106,7 +136,7 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
         <head>
             <title>Fly-Flash 烧录状态</title>
             <meta charset="utf-8">
-            <meta http-equiv="refresh" content="5">
+            <meta http-equiv="refresh" content="10">
             <style>
                 body {{ 
                     font-family: Arial, sans-serif; 
@@ -163,6 +193,28 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
                 .log-entry {{
                     margin: 2px 0;
                 }}
+                .controls {{
+                    margin: 15px 0;
+                    text-align: right;
+                }}
+                .btn {{
+                    padding: 8px 16px;
+                    background: #007cba;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                    margin-left: 10px;
+                }}
+                .btn:hover {{
+                    background: #005a87;
+                }}
+                .btn-reset {{
+                    background: #dc3545;
+                }}
+                .btn-reset:hover {{
+                    background: #c82333;
+                }}
             </style>
         </head>
         <body>
@@ -172,6 +224,11 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
                     <div class="status-badge">
                         {status_text}
                     </div>
+                </div>
+                
+                <div class="controls">
+                    <button class="btn" onclick="window.location.reload()">刷新页面</button>
+                    <button class="btn btn-reset" onclick="resetStatus()">重置状态</button>
                 </div>
                 
                 <div>
@@ -195,6 +252,17 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             </div>
             
             <script>
+                function resetStatus() {{
+                    if(confirm('确定要重置状态吗？这将清空所有日志和进度。')) {{
+                        fetch('/reset', {{method: 'POST'}})
+                            .then(response => {{
+                                if(response.ok) {{
+                                    window.location.reload();
+                                }}
+                            }});
+                    }}
+                }}
+                
                 window.onload = function() {{
                     var logContainer = document.querySelector('.log-container');
                     logContainer.scrollTop = logContainer.scrollHeight;

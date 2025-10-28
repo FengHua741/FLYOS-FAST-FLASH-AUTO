@@ -5,7 +5,7 @@ import sys
 import os
 
 # 配置 - 使用设备A的IP地址
-SERVER_URL = "http://192.168.101.239:8081/update"
+SERVER_URL = "http://192.168.101.239:8081/update"  # 🔄 确认IP正确
 
 def send_status(step, status, progress, log_message=None, device_info=None):
     data = {

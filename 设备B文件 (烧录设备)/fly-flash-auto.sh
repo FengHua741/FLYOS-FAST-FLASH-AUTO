@@ -2,6 +2,7 @@
 
 # 配置
 LOG_FILE="/var/log/fly-flash.log"
+SERVER_URL="http://192.168.101.239:8081/update"
 
 # 清空旧日志
 echo "=== Fly-Flash 自动执行开始: $(date) ===" > $LOG_FILE
@@ -109,7 +110,7 @@ if run_command \
             # 发送最终成功状态
             send_status "shutdown" "success" 100 "系统将在5秒后关机"
             
-            # 等待5秒后关机
+            # 🔄 更新：确保这里是5秒倒计时
             for i in {5..1}; do
                 echo "关机倒计时: $i 秒 (按 Ctrl+C 取消)"
                 sleep 1
