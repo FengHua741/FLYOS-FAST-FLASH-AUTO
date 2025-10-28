@@ -39,10 +39,19 @@
 ## 快速开始
 
 ### 1. 克隆仓库
+
+#### 设备A
 ```bash
-git clone <repository-url>
-cd fly-flash-system
+git clone https://github.com/FengHua741/FLYOS-FAST-FLASH-AUTO.git
+cd FLYOS-FAST-FLASH-AUTO
 ```
+
+#### 设备B
+```bash
+cd /data && git clone https://github.com/FengHua741/FLYOS-FAST-FLASH-AUTO.git
+cd /data/FLYOS-FAST-FLASH-AUTO/
+```
+
 
 ### 2. 给脚本添加执行权限
 ```bash
