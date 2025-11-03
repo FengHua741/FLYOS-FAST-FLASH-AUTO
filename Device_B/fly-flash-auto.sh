@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 配置
-LOG_FILE="/var/log/fly-flash.log"
+LOG_FILE="/var/log/fly-flash/fly-flash.log"
 SERVER_URL="http://192.168.101.239:8081/update"
 
 # 清空旧日志
@@ -20,7 +20,7 @@ send_status() {
     echo "$log_msg"
     
     # 发送到状态服务器
-    python3 /usr/local/bin/send-status.py "$step" "$status" "$progress" "$log_msg"
+    python3 /etc/fly-flash/bin/send-status.py "$step" "$status" "$progress" "$log_msg"
 }
 
 # 函数：执行命令并发送状态
@@ -77,7 +77,7 @@ send_status "initialization" "waiting" 0 "系统初始化" "$(get_device_info)"
 
 # 第一步：DFU刷写
 if run_command \
-    "fly-flash -d auto -u -f /usr/lib/firmware/bootloader/hid_bootloader_h723_v1.0.bin" \
+    "fly-flash -d auto -u -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
     "DFU模式刷写" \
     20 \
     "File downloaded successfully"; then
