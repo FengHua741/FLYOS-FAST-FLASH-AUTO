@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # 配置
-LOG_FILE="/var/log/fly-flash/fly-flash.log"
+LOG_FILE="/var/log/fly-flash.log"
 SERVER_URL="http://192.168.101.239:8081/update"
 
 # 清空旧日志
@@ -77,7 +77,7 @@ send_status "initialization" "waiting" 0 "系统初始化" "$(get_device_info)"
 
 # 第一步：DFU刷写
 if run_command \
-    "fly-flash -d auto -u -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
+    "fly-flash -d auto -h -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
     "DFU模式刷写" \
     20 \
     "File downloaded successfully"; then

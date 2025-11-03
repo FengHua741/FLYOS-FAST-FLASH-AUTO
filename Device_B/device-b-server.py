@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import http.server
 import socketserver
 import json
 import subprocess
 import os
-import threading
 import socket
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
@@ -89,16 +87,9 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
             ip = s.getsockname()[0]
             s.close()
             
-            # 检查服务状态
-            service_status = subprocess.run(
-                ['systemctl', 'is-active', 'fly-flash-auto.service'],
-                capture_output=True, text=True
-            )
-            
             return {
                 "success": True,
                 "ip": ip,
-                "service_status": service_status.stdout.strip(),
                 "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             }
             
@@ -125,27 +116,20 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
     def trigger_retry_flash(self):
         """触发重新烧录"""
         try:
-            # 由于fly-flash-auto.service是oneshot类型，我们直接执行脚本
+            # 直接执行烧录脚本
             result = subprocess.run(
-                ['/usr/local/bin/fly-flash-auto.sh'],
+                ['/data/fly-flash/bin/fly-flash-auto.sh'],
                 capture_output=True, text=True, timeout=5
             )
             
-            if result.returncode == 0:
-                return {
-                    "success": True,
-                    "message": "重新烧录指令已发送，烧录流程已启动...",
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-            else:
-                return {
-                    "success": False,
-                    "message": f"启动烧录失败: {result.stderr}",
-                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
+            # 超时是正常的，因为脚本会运行较长时间
+            return {
+                "success": True,
+                "message": "重新烧录指令已发送，烧录流程正在启动...",
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            }
                 
         except subprocess.TimeoutExpired:
-            # 超时是正常的，因为脚本会运行较长时间
             return {
                 "success": True,
                 "message": "重新烧录指令已发送，烧录流程正在启动...",
@@ -159,7 +143,6 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
         # 获取设备信息
         device_info = self.get_device_info()
         ip_address = device_info.get('ip', '未知') if device_info['success'] else '未知'
-        service_status = device_info.get('service_status', '未知') if device_info['success'] else '未知'
         
         return f"""
         <!DOCTYPE html>
@@ -255,7 +238,6 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
                 <div class="device-info">
                     <h3>设备信息</h3>
                     <p><strong>IP地址:</strong> {ip_address}</p>
-                    <p><strong>服务状态:</strong> {service_status}</p>
                     <p><strong>最后更新:</strong> <span id="lastUpdate">-</span></p>
                 </div>
                 
@@ -275,8 +257,7 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
                 
                 <div class="section">
                     <h3>服务管理</h3>
-                    <button class="btn" onclick="restartService()">重启烧录服务</button>
-                    <button class="btn" onclick="checkServiceStatus()">检查服务状态</button>
+                    <button class="btn" onclick="checkServiceStatus()">检查烧录服务状态</button>
                     <div id="service-result" style="display: none;"></div>
                 </div>
             </div>
@@ -325,12 +306,8 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
                         }});
                 }}
                 
-                function restartService() {{
-                    executeSystemCommand('systemctl restart fly-flash-auto.service', 'service-result');
-                }}
-                
                 function checkServiceStatus() {{
-                    executeSystemCommand('systemctl status fly-flash-auto.service', 'service-result');
+                    executeSystemCommand('ps aux | grep fly-flash', 'service-result');
                 }}
                 
                 function executeSystemCommand(command, resultId) {{

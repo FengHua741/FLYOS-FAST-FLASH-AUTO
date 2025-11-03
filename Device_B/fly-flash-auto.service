@@ -5,7 +5,7 @@ Wants=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/etc/fly-flash/bin/fly-flash-auto.sh
+ExecStart=/data/fly-flash/bin/fly-flash-auto.sh
 RemainAfterExit=no
 User=root
 Group=root
