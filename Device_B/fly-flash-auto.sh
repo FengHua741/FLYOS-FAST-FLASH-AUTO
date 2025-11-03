@@ -87,7 +87,7 @@ if run_command \
     
     # 第二步：HID刷写  
     if run_command \
-        "fly-flash -d auto -h -f /usr/lib/firmware/klipper-h723-128k-usb.bin" \
+        "fly-flash -d auto -h -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
         "HID模式刷写" \
         60 \
         "> Finish"; then

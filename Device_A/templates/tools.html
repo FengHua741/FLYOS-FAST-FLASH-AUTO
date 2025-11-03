@@ -1,0 +1,62 @@
+<!-- ~/FLYOS-FAST-FLASH-AUTO/Device_A/templates/tools.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Fly-Flash 系统工具</title>
+    <meta charset="utf-8">
+    <style>
+        /* 样式保持不变，与之前相同 */
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <h2>Fly-Flash 系统</h2>
+            </div>
+            <div class="nav-menu">
+                <a href="/tools" class="nav-link active">系统工具</a>
+                <a href="/" class="nav-link">状态监控</a>
+            </div>
+        </div>
+    </nav>
+    
+    <div class="container">
+        <!-- 内容保持不变，与之前相同 -->
+    </div>
+
+    <script>
+        function copyCommand(command) {
+            // 创建临时textarea元素
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = command;
+            tempTextArea.style.position = 'fixed';
+            tempTextArea.style.left = '-9999px';
+            tempTextArea.style.top = '0';
+            document.body.appendChild(tempTextArea);
+            
+            // 选中文本
+            tempTextArea.select();
+            tempTextArea.setSelectionRange(0, 99999); // 对于移动设备
+            
+            try {
+                // 执行复制命令
+                const successful = document.execCommand('copy');
+                
+                if (successful) {
+                    showNotification('✅ 命令已复制到剪贴板');
+                } else {
+                    showNotification('❌ 复制失败，请手动选择文本复制');
+                }
+            } catch (err) {
+                showNotification('❌ 复制失败: ' + err);
+            }
+            
+            // 清理临时元素
+            document.body.removeChild(tempTextArea);
+        }
+
+        // 其他函数保持不变，与之前相同
+    </script>
+</body>
+</html>

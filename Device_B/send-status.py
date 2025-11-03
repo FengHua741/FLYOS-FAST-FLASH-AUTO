@@ -3,16 +3,30 @@ import requests
 import json
 import sys
 import os
+import socket
 
 # 配置 - 使用设备A的IP地址
-SERVER_URL = "http://192.168.101.239:8081/update"  # 🔄 确认IP正确
+SERVER_URL = "http://192.168.101.239:8081/update"  # 设备A的地址
+
+def get_device_ip():
+    """获取设备B的IP地址"""
+    try:
+        # 获取本机IP地址
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except:
+        return "未知"
 
 def send_status(step, status, progress, log_message=None, device_info=None):
     data = {
         "step": step,
         "status": status,
         "progress": progress,
-        "device_info": device_info
+        "device_info": device_info,
+        "device_b_ip": get_device_ip()  # 添加设备B的IP地址
     }
     
     # 添加日志消息

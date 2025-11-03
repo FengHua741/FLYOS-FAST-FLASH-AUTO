@@ -1,0 +1,16 @@
+[Unit]
+Description=Fly-Flash Device B HTTP Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/device-b-server.py
+WorkingDirectory=/usr/local/bin
+Restart=always
+RestartSec=5
+User=root
+Group=root
+
+[Install]
+WantedBy=multi-user.target
