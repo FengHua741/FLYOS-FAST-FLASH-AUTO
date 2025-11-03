@@ -5,8 +5,8 @@ Wants=network.target
 
 [Service]
 Type=simple
-ExecStart=/etc/fly-flash/bin/device-b-server.py
-WorkingDirectory=/etc/fly-flash/bin
+ExecStart=/data/fly-flash/bin/device-b-server.py
+WorkingDirectory=/data/fly-flash/bin
 Restart=always
 RestartSec=5
 User=root
