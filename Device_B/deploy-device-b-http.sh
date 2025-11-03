@@ -8,10 +8,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "脚本目录: $SCRIPT_DIR"
 
-# 创建必要的目录
+# 创建目录 - 使用/etc目录（通常可写且持久）
 echo "创建系统目录..."
 mkdir -p /etc/fly-flash/bin
-mkdir -p /etc/fly-flash/firmware
+mkdir -p /etc/fly-flash/logs
 mkdir -p /var/log/fly-flash
 
 # 复制脚本到/etc目录
@@ -29,12 +29,16 @@ chmod +x /etc/fly-flash/bin/fly-flash-auto.sh
 echo "更新脚本路径..."
 sed -i 's|/usr/local/bin/|/etc/fly-flash/bin/|g' /etc/fly-flash/bin/fly-flash-auto.sh
 sed -i 's|/usr/local/bin/|/etc/fly-flash/bin/|g' /etc/fly-flash/bin/send-status.py
+sed -i 's|/var/log/fly-flash/|/var/log/fly-flash/|g' /etc/fly-flash/bin/fly-flash-auto.sh
+
+# 更新固件路径（如果还没更新）
+sed -i 's|/usr/lib/firmware/bootloader/hid_bootloader_h723_v1.0.bin|/usr/lib/firmware/klipper/stm32h723-128k-usb.bin|g' /etc/fly-flash/bin/fly-flash-auto.sh
 
 # 安装Python依赖
 echo "安装Python依赖..."
 pip3 install requests
 
-# 复制systemd服务文件并更新路径
+# 复制systemd服务文件到/etc
 echo "配置systemd服务..."
 cp "$SCRIPT_DIR/device-b-http.service" /etc/systemd/system/
 cp "$SCRIPT_DIR/fly-flash-auto.service" /etc/systemd/system/
@@ -53,9 +57,9 @@ systemctl enable fly-flash-auto.service
 
 # 检查服务状态
 echo "检查服务状态..."
-systemctl status device-b-http.service
+systemctl status device-b-http.service --no-pager
 
 echo "设备B HTTP服务部署完成!"
-echo "服务运行在: http://0.0.0.0:8082"
-echo "脚本路径: /etc/fly-flash/bin/"
-echo "日志路径: /var/log/fly-flash/"
+echo "文件位置: /etc/fly-flash/bin/"
+echo "日志位置: /var/log/fly-flash/"
+echo "HTTP服务运行在: http://0.0.0.0:8082"
