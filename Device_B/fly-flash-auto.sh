@@ -16,7 +16,7 @@ filter_ansi_colors() {
 
 # 清空旧日志
 echo "=== Fly-Flash 自动执行开始: $(date) ===" > $LOG_FILE
-echo "实时日志流版本 - 支持逐行上报（ANSI颜色已过滤）" >> $LOG_FILE
+echo "实时日志流版本 - 支持逐行上报" >> $LOG_FILE
 
 # 函数：发送状态到服务器（带重试）
 send_status_with_retry() {
@@ -149,7 +149,7 @@ check_network_connectivity() {
 # 主程序
 echo "========================================"
 echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
-echo "   实时日志流版本（ANSI颜色已过滤）"
+echo "   实时日志流版本"
 echo "   开始时间: $(date)"
 echo "   状态服务器: http://192.168.101.239:8081"
 echo "========================================"
@@ -158,14 +158,14 @@ echo "========================================"
 {
     echo "========================================"
     echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
-    echo "   实时日志流版本（ANSI颜色已过滤）"
+    echo "   实时日志流版本"
     echo "   开始时间: $(date)"
     echo "   状态服务器: http://192.168.101.239:8081"
     echo "========================================"
 } >> $LOG_FILE
 
 # 立即发送初始状态
-send_status_with_retry "system_start" "running" 0 "系统启动 - 实时日志流版本（ANSI颜色已过滤）"
+send_status_with_retry "system_start" "running" 0 "系统启动 - 实时日志流版本"
 
 # 在后台检查网络连接
 check_network_connectivity &
@@ -197,9 +197,9 @@ if run_command_realtime \
         send_status_with_retry "device_verification" "running" 90 "验证USB设备"
         echo "检查USB设备..." >> $LOG_FILE
         
-        # 实时检查USB设备
+        # 实时检查USB设备 - 增加到30次检查（60秒）
         local usb_check_count=0
-        local max_usb_checks=10
+        local max_usb_checks=30
         local device_found=0
         
         while [ $usb_check_count -lt $max_usb_checks ] && [ $device_found -eq 0 ]; do
@@ -215,20 +215,14 @@ if run_command_realtime \
                 send_status_with_retry "device_verification" "success" 100 "设备验证成功 - 检测到目标设备 1d50:614e"
                 
                 echo ""
-                echo "所有步骤完成！准备关机..."
-                echo "所有步骤完成！准备关机..." >> $LOG_FILE
+                echo "所有步骤完成！立即关机..."
+                echo "所有步骤完成！立即关机..." >> $LOG_FILE
                 
                 # 发送最终成功状态
-                send_status_with_retry "shutdown" "success" 100 "所有步骤完成！系统将在5秒后关机"
-                
-                # 5秒倒计时
-                for i in {5..1}; do
-                    echo "关机倒计时: $i 秒 (按 Ctrl+C 取消)" >> $LOG_FILE
-                    python3 $SEND_STATUS_SCRIPT "shutdown" "success" "100" "关机倒计时: $i 秒 (按 Ctrl+C 取消)" || true
-                    sleep 1
-                done
+                send_status_with_retry "shutdown" "success" 100 "所有步骤完成！系统立即关机"
                 
                 echo "正在关机..." >> $LOG_FILE
+                # 立即关机，不等待
                 shutdown -h now
                 exit 0
             else
