@@ -86,9 +86,8 @@ chmod +x Device_A/flash-web-server.py
 ```bash
 rm -rf /data//FLYOS-FAST-FLASH-AUTO
 cd /data && git clone https://github.com/FengHua741/FLYOS-FAST-FLASH-AUTO.git
-chmod +x Deployment_script/*.sh
-chmod +x Device_A/flash-web-server.py
 cd /data/FLYOS-FAST-FLASH-AUTO/Device_B
+chmod +x deploy-device-b.sh
 ./deploy-device-b.sh
 ```
 
