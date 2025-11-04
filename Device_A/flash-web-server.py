@@ -119,7 +119,7 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             self.send_error(404)
 
     def update_status(self, data):
-        """更新状态 - 修复日志显示问题"""
+        """更新状态 - 简化的日志处理逻辑"""
         global current_status
         
         debug_log(f"开始更新状态，当前步骤: {current_status.get('step')}")
@@ -132,38 +132,25 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
                 current_status[key] = new_value
                 debug_log(f"更新字段 {key}: {old_value} -> {new_value}")
         
-        # 处理日志更新 - 修复日志显示问题
-        if "log" in data and data["log"] is not None:
-            if isinstance(data["log"], list):
-                old_log_count = len(current_status["log"])
+        # 简化的日志处理逻辑 - 修复日志显示问题
+        if "message" in data and data["message"] is not None:
+            # 使用message字段作为日志条目
+            log_entry = data["message"]
+            if isinstance(log_entry, str):
+                # 添加时间戳到日志条目
+                timestamp = datetime.now().strftime("%H:%M:%S")
+                formatted_log = f"[{timestamp}] {log_entry}"
                 
-                # 关键修复：正确处理日志更新
-                # 如果接收到的是完整的日志数组，替换整个日志
-                # 如果接收到的是新日志条目，追加到现有日志
-                if data.get("replace_log", False) or len(data["log"]) > 10:
-                    # 如果明确要求替换或者日志条目很多，认为是完整日志
-                    current_status["log"] = data["log"]
-                    debug_log(f"替换整个日志数组: {old_log_count} -> {len(data['log'])} 行")
-                else:
-                    # 否则认为是新日志条目，追加到现有日志
-                    current_status["log"].extend(data["log"])
-                    debug_log(f"追加日志: {old_log_count} -> {len(current_status['log'])} 行")
+                # 追加到日志数组
+                current_status["log"].append(formatted_log)
+                debug_log(f"添加日志条目: {formatted_log}")
                 
                 # 限制日志长度，避免过大
-                if len(current_status["log"]) > 1000:
-                    current_status["log"] = current_status["log"][-500:]
-                    debug_log("日志过长，截断到500行")
-                
-                # 打印前几行日志作为示例
-                sample_logs = current_status["log"][-5:] if len(current_status["log"]) >= 5 else current_status["log"]
-                for i, log_line in enumerate(sample_logs):
-                    debug_log(f"日志示例[{i}]: {log_line}")
-            elif isinstance(data["log"], str):
-                # 如果是字符串，作为单条日志追加
-                current_status["log"].append(data["log"])
-                debug_log(f"追加单条日志: {data['log']}")
+                if len(current_status["log"]) > 100:
+                    current_status["log"] = current_status["log"][-50:]
+                    debug_log("日志过长，截断到50行")
             else:
-                debug_log(f"警告: log字段不是列表或字符串类型: {type(data['log'])}")
+                debug_log(f"警告: message字段不是字符串类型: {type(log_entry)}")
         
         current_status["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -176,16 +163,26 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             debug_log(f"保存状态文件失败: {str(e)}")
 
     def reset_status(self):
-        """重置状态到初始值"""
+        """重置状态到初始值 - 确保完全清理"""
         global current_status
-        current_status = initial_status.copy()
-        current_status["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # 完全重置状态，包括创建新的日志数组
+        current_status = {
+            "status": "waiting",
+            "step": "未开始",
+            "log": ["系统就绪，等待烧录..."],
+            "last_update": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "device_info": None,
+            "device_b_ip": None
+        }
+        
+        debug_log("状态已完全重置")
         
         # 保存到文件
         try:
             with open(STATUS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(current_status, f, ensure_ascii=False, indent=2)
-            debug_log("状态已重置到初始状态")
+            debug_log("重置状态已保存到文件")
         except Exception as e:
             debug_log(f"保存状态文件失败: {str(e)}")
         
@@ -199,16 +196,23 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
         """重新烧录 - 重置状态并准备重新开始"""
         global current_status
         
-        # 完全重置状态，包括清理日志
-        current_status = initial_status.copy()
-        current_status["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        current_status["log"] = ["系统就绪，准备重新烧录..."]  # 明确清理日志
+        # 完全重置状态
+        current_status = {
+            "status": "waiting",
+            "step": "未开始",
+            "log": ["系统就绪，准备重新烧录..."],
+            "last_update": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "device_info": None,
+            "device_b_ip": None
+        }
+        
+        debug_log("状态已重置，准备重新烧录")
         
         # 保存到文件
         try:
             with open(STATUS_FILE, 'w', encoding='utf-8') as f:
                 json.dump(current_status, f, ensure_ascii=False, indent=2)
-            debug_log("状态已重置，准备重新烧录")
+            debug_log("重新烧录状态已保存到文件")
         except Exception as e:
             debug_log(f"保存状态文件失败: {str(e)}")
         
