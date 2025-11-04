@@ -77,6 +77,8 @@ FLYOS-FAST-FLASH-AUTO/
 rm -rf ~//FLYOS-FAST-FLASH-AUTO
 git clone https://github.com/FengHua741/FLYOS-FAST-FLASH-AUTO.git
 cd FLYOS-FAST-FLASH-AUTO
+chmod +x Deployment_script/*.sh
+chmod +x Device_A/flash-web-server.py
 ./Deployment_script/deploy_device_a.sh
 ```
 
@@ -84,6 +86,8 @@ cd FLYOS-FAST-FLASH-AUTO
 ```bash
 rm -rf /data//FLYOS-FAST-FLASH-AUTO
 cd /data && git clone https://github.com/FengHua741/FLYOS-FAST-FLASH-AUTO.git
+chmod +x Deployment_script/*.sh
+chmod +x Device_A/flash-web-server.py
 cd /data/FLYOS-FAST-FLASH-AUTO/Device_B
 ./deploy-device-b.sh
 ```
