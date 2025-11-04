@@ -81,19 +81,6 @@
         .connection-dot.disconnected {
             background: #dc3545;
         }
-        .progress-bar {
-            width: 100%;
-            height: 20px;
-            background: #eee;
-            border-radius: 10px;
-            overflow: hidden;
-            margin: 10px 0;
-        }
-        .progress-fill {
-            height: 100%;
-            background: #4CAF50;
-            transition: width 0.3s;
-        }
         .log-container {
             background: #000;
             color: #0f0;
@@ -211,14 +198,6 @@
                 <h3>设备B IP</h3>
                 <p id="deviceBIP">未知</p>
             </div>
-        </div>
-        
-        <div>
-            <h3>烧录进度</h3>
-            <div class="progress-bar">
-                <div class="progress-fill" id="progressFill" style="width: 0%;"></div>
-            </div>
-            <div>进度: <span id="progressText">0</span>%</div>
         </div>
         
         <div>
@@ -368,8 +347,6 @@
                     
                     // 更新其他元素
                     document.getElementById('currentStep').textContent = data.step;
-                    document.getElementById('progressFill').style.width = data.progress + '%';
-                    document.getElementById('progressText').textContent = data.progress;
                     document.getElementById('lastUpdate').textContent = data.last_update || "从未";
                     document.getElementById('deviceInfo').textContent = data.device_info || "无";
                     document.getElementById('deviceBIP').textContent = data.device_b_ip || "未知";
