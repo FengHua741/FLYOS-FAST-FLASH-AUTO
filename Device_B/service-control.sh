@@ -35,10 +35,24 @@ stop_service() {
 
 restart_service() {
     echo "重启烧录服务..."
-    systemctl restart fly-flash-auto.service
-    echo "服务重启完成"
+    
+    # 先停止服务（如果正在运行）
+    systemctl stop fly-flash-auto.service 2>/dev/null || true
+    
+    # 等待服务完全停止
+    sleep 2
+    
+    # 重新启动服务
+    if systemctl start fly-flash-auto.service; then
+        echo "服务重启完成"
+    else
+        echo "服务重启失败，请查看详细日志："
+        systemctl status fly-flash-auto.service --no-pager
+        echo ""
+        echo "尝试手动重启烧录脚本："
+        echo "cd /data/FLYOS-FAST-FLASH-AUTO/Device_B && ./fly-flash-auto.sh"
+    fi
 }
-
 show_status() {
     echo "========================================"
     echo "服务状态:"
