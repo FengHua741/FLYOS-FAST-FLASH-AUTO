@@ -117,8 +117,9 @@ class DeviceBHandler(http.server.BaseHTTPRequestHandler):
         """触发重新烧录"""
         try:
             # 直接执行烧录脚本
+            script_path = "/data/FLYOS-FAST-FLASH-AUTO/Device_B/fly-flash-auto.sh"
             result = subprocess.run(
-                ['/data/fly-flash/bin/fly-flash-auto.sh'],
+                [script_path],
                 capture_output=True, text=True, timeout=5
             )
             

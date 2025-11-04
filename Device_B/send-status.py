@@ -32,7 +32,7 @@ def send_status(step, status, progress, log_message=None, device_info=None):
     # 添加日志消息
     if log_message:
         # 从文件读取当前日志或创建新日志
-        log_file = "/var/log/fly-flash.log"
+        log_file = "/data/FLYOS-FAST-FLASH-AUTO/Device_B/logs/fly-flash.log"
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
                 logs = f.read().splitlines()[-100:]  # 最近100行

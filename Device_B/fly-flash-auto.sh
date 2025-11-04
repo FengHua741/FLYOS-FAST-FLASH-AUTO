@@ -1,8 +1,12 @@
 #!/bin/bash
 
+# FlyOS-FAST Flash Auto 烧录脚本
+# 专为 FlyOS-FAST 系统设计
+
 # 配置
-LOG_FILE="/var/log/fly-flash.log"
+LOG_FILE="/data/FLYOS-FAST-FLASH-AUTO/Device_B/logs/fly-flash.log"
 SERVER_URL="http://192.168.101.239:8081/update"
+SEND_STATUS_SCRIPT="/data/FLYOS-FAST-FLASH-AUTO/Device_B/send-status.py"
 
 # 清空旧日志
 echo "=== Fly-Flash 自动执行开始: $(date) ===" > $LOG_FILE
@@ -20,7 +24,7 @@ send_status() {
     echo "$log_msg"
     
     # 发送到状态服务器
-    python3 /etc/fly-flash/bin/send-status.py "$step" "$status" "$progress" "$log_msg"
+    python3 $SEND_STATUS_SCRIPT "$step" "$status" "$progress" "$log_msg"
 }
 
 # 函数：执行命令并发送状态
@@ -67,7 +71,7 @@ get_device_info() {
 
 # 主程序
 echo "========================================"
-echo "   Fly-Flash 自动刷写程序 (网络版)"
+echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
 echo "   开始时间: $(date)"
 echo "   状态服务器: http://192.168.101.239:8081"
 echo "========================================"
@@ -75,24 +79,24 @@ echo "========================================"
 # 初始状态
 send_status "initialization" "waiting" 0 "系统初始化" "$(get_device_info)"
 
-# 第一步：DFU刷写
+# 第一步：BL烧录 (DFU模式)
 if run_command \
-    "fly-flash -d auto -h -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
-    "DFU模式刷写" \
+    "fly-flash -d auto -u -f /usr/lib/firmware/bootloader/hid_bootloader_h723_v1.0.bin" \
+    "BL烧录" \
     20 \
     "File downloaded successfully"; then
     
-    send_status "dfu_complete" "success" 30 "DFU刷写完成，等待设备重置..."
+    send_status "bl_complete" "success" 30 "BL烧录完成，等待设备重置..."
     sleep 5
     
-    # 第二步：HID刷写  
+    # 第二步：HID烧录  
     if run_command \
         "fly-flash -d auto -h -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
-        "HID模式刷写" \
+        "HID烧录" \
         60 \
         "> Finish"; then
         
-        send_status "hid_complete" "success" 80 "HID刷写完成，等待设备重置..."
+        send_status "hid_complete" "success" 80 "HID烧录完成，等待设备重置..."
         sleep 8
         
         # 第三步：设备验证
@@ -110,7 +114,7 @@ if run_command \
             # 发送最终成功状态
             send_status "shutdown" "success" 100 "系统将在5秒后关机"
             
-            # 🔄 更新：确保这里是5秒倒计时
+            # 5秒倒计时
             for i in {5..1}; do
                 echo "关机倒计时: $i 秒 (按 Ctrl+C 取消)"
                 sleep 1
@@ -125,10 +129,10 @@ if run_command \
             lsusb
         fi
     else
-        send_status "hid_flash" "error" 60 "HID刷写失败"
+        send_status "hid_flash" "error" 60 "HID烧录失败"
     fi
 else
-    send_status "dfu_flash" "error" 20 "DFU刷写失败"
+    send_status "bl_flash" "error" 20 "BL烧录失败"
 fi
 
 echo ""
@@ -139,4 +143,4 @@ echo "   状态页面: http://192.168.101.239:8081"
 echo "========================================"
 
 # 发送最终错误状态
-send_status "completed" "error" 100 "自动刷写流程未完成"
+send_status "completed" "error" 100 "自动烧录流程未完成"
