@@ -74,7 +74,7 @@ FLYOS-FAST-FLASH-AUTO/
 
 #### 设备A（Web服务器）
 ```bash
-rm -rf ~//FLYOS-FAST-FLASH-AUTO
+cd && rm -rf ~/FLYOS-FAST-FLASH-AUTO
 git clone https://github.com/FengHua741/FLYOS-FAST-FLASH-AUTO.git
 cd FLYOS-FAST-FLASH-AUTO
 chmod +x Deployment_script/*.sh
