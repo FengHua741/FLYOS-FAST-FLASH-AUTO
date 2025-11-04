@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# FlyOS-FAST Flash Auto 烧录脚本 - 优化版
-# 专为 FlyOS-FAST 系统设计
+# FlyOS-FAST Flash Auto 烧录脚本 - 实时日志流版本
+# 专为 FlyOS-FAST 系统设计，支持逐行实时日志上报
 
 # 配置
 LOG_FILE="/data/FLYOS-FAST-FLASH-AUTO/Device_B/logs/fly-flash.log"
@@ -10,27 +10,7 @@ SEND_STATUS_SCRIPT="/data/FLYOS-FAST-FLASH-AUTO/Device_B/send-status.py"
 
 # 清空旧日志
 echo "=== Fly-Flash 自动执行开始: $(date) ===" > $LOG_FILE
-
-# 函数：检查网络连接
-check_network_connectivity() {
-    echo "检查网络连接..."
-    local max_attempts=5
-    local attempt=1
-    
-    while [ $attempt -le $max_attempts ]; do
-        if ping -c 1 -W 2 192.168.101.239 &> /dev/null; then
-            echo "✅ 网络连接正常 (尝试 $attempt/$max_attempts)"
-            return 0
-        else
-            echo "⏳ 网络连接检查中... ($attempt/$max_attempts)"
-            sleep 2
-            ((attempt++))
-        fi
-    done
-    
-    echo "⚠️ 网络连接可能不稳定，继续执行但状态上报可能延迟"
-    return 1
-}
+echo "实时日志流版本 - 支持逐行上报" >> $LOG_FILE
 
 # 函数：发送状态到服务器（带重试）
 send_status_with_retry() {
@@ -40,9 +20,9 @@ send_status_with_retry() {
     local message="$4"
     
     # 记录日志
-    local log_msg="$(date '+%Y-%m-%d %H:%M:%S') - $message"
+    local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    local log_msg="$timestamp - $message"
     echo "$log_msg" >> $LOG_FILE
-    echo "$log_msg"
     
     # 发送到状态服务器（最多重试2次）
     local retry_count=0
@@ -54,76 +34,135 @@ send_status_with_retry() {
         else
             retry_count=$((retry_count + 1))
             if [ $retry_count -le $max_retries ]; then
-                echo "状态上报失败，重试中... ($retry_count/$max_retries)"
+                echo "状态上报失败，重试中... ($retry_count/$max_retries)" >> $LOG_FILE
                 sleep 1
             fi
         fi
     done
     
-    echo "❌ 状态上报失败，跳过此状态"
+    echo "❌ 状态上报失败，跳过此状态" >> $LOG_FILE
     return 1
 }
 
-# 函数：执行命令并发送状态
-run_command() {
+# 函数：实时执行命令并逐行上报日志
+run_command_realtime() {
     local cmd="$1"
     local step="$2"
     local progress="$3"
     local success_pattern="$4"
     
-    send_status_with_retry "$step" "running" "$progress" "开始: $step"
-    echo "执行: $cmd"
-    echo "----------------------------------------"
+    # 发送开始状态
+    send_status_with_retry "$step" "running" "$progress" "开始执行: $step"
+    echo "执行命令: $cmd" >> $LOG_FILE
+    echo "----------------------------------------" >> $LOG_FILE
     
-    # 临时文件用于存储命令输出
-    local temp_file=$(mktemp)
+    # 创建命名管道用于实时读取输出
+    local pipe_file=$(mktemp -u)
+    mkfifo "$pipe_file"
     
-    # 执行命令并同时输出到终端和文件
-    if eval "$cmd" 2>&1 | tee "$temp_file" | while IFS= read -r line; do
-        echo "$line"
-        echo "$line" >> $LOG_FILE
-    done; then
-        local exit_code=0
-    else
-        local exit_code=1
-    fi
+    # 执行命令并将输出重定向到命名管道
+    eval "$cmd" > "$pipe_file" 2>&1 &
+    local cmd_pid=$!
     
-    # 检查命令输出是否包含成功模式
-    if [ $exit_code -eq 0 ] && grep -q "$success_pattern" "$temp_file"; then
-        send_status_with_retry "$step" "success" "$((progress+10))" "$step 完成"
-        rm -f "$temp_file"
+    # 从命名管道逐行读取输出并实时上报
+    local line_count=0
+    local success_found=0
+    
+    while IFS= read -r line; do
+        # 记录到日志文件
+        local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+        echo "$timestamp - $line" >> $LOG_FILE
+        
+        # 实时上报日志行
+        python3 $SEND_STATUS_SCRIPT "$step" "running" "$progress" "$line" || true
+        
+        # 检查成功模式
+        if [[ $line == *"$success_pattern"* ]]; then
+            success_found=1
+        fi
+        
+        line_count=$((line_count + 1))
+        
+        # 每10行更新一次进度（避免过于频繁的上报）
+        if [ $((line_count % 10)) -eq 0 ]; then
+            send_status_with_retry "$step" "running" "$progress" "执行中... 已处理 $line_count 行输出"
+        fi
+        
+    done < "$pipe_file"
+    
+    # 等待命令完成
+    wait $cmd_pid
+    local exit_code=$?
+    
+    # 清理命名管道
+    rm -f "$pipe_file"
+    
+    # 检查命令执行结果
+    if [ $exit_code -eq 0 ] && [ $success_found -eq 1 ]; then
+        send_status_with_retry "$step" "success" "$((progress+10))" "$step 完成 - 成功模式匹配: $success_pattern"
         return 0
     else
-        send_status_with_retry "$step" "error" "$progress" "$step 失败"
-        rm -f "$temp_file"
+        send_status_with_retry "$step" "error" "$progress" "$step 失败 - 退出码: $exit_code, 成功模式匹配: $success_found"
         return 1
     fi
 }
 
-# 获取设备信息
+# 函数：获取设备信息
 get_device_info() {
     local device_info=$(lsusb | grep -E "1d50:614e|0483:df11" | head -1)
     echo "$device_info"
 }
 
+# 函数：检查网络连接（后台运行）
+check_network_connectivity() {
+    echo "检查网络连接..." >> $LOG_FILE
+    local max_attempts=5
+    local attempt=1
+    
+    while [ $attempt -le $max_attempts ]; do
+        if ping -c 1 -W 2 192.168.101.239 &> /dev/null; then
+            echo "✅ 网络连接正常 (尝试 $attempt/$max_attempts)" >> $LOG_FILE
+            return 0
+        else
+            echo "⏳ 网络连接检查中... ($attempt/$max_attempts)" >> $LOG_FILE
+            sleep 2
+            ((attempt++))
+        fi
+    done
+    
+    echo "⚠️ 网络连接可能不稳定，继续执行但状态上报可能延迟" >> $LOG_FILE
+    return 1
+}
+
 # 主程序
 echo "========================================"
 echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
+echo "   实时日志流版本"
 echo "   开始时间: $(date)"
 echo "   状态服务器: http://192.168.101.239:8081"
 echo "========================================"
 
-# 立即发送初始状态（不等待网络检查）
-send_status_with_retry "system_start" "running" 0 "系统启动"
+# 记录到日志文件
+{
+    echo "========================================"
+    echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
+    echo "   实时日志流版本"
+    echo "   开始时间: $(date)"
+    echo "   状态服务器: http://192.168.101.239:8081"
+    echo "========================================"
+} >> $LOG_FILE
 
-# 检查网络连接（在后台进行，不阻塞主流程）
+# 立即发送初始状态
+send_status_with_retry "system_start" "running" 0 "系统启动 - 实时日志流版本"
+
+# 在后台检查网络连接
 check_network_connectivity &
 
 # 初始状态
 send_status_with_retry "initialization" "waiting" 5 "系统初始化" "$(get_device_info)"
 
 # 第一步：BL烧录 (DFU模式)
-if run_command \
+if run_command_realtime \
     "fly-flash -d auto -u -f /usr/lib/firmware/bootloader/hid_bootloader_h723_v1.0.bin" \
     "BL烧录" \
     20 \
@@ -133,7 +172,7 @@ if run_command \
     sleep 5
     
     # 第二步：HID烧录  
-    if run_command \
+    if run_command_realtime \
         "fly-flash -d auto -h -f /usr/lib/firmware/klipper/stm32h723-128k-usb.bin" \
         "HID烧录" \
         60 \
@@ -144,33 +183,52 @@ if run_command \
         
         # 第三步：设备验证
         send_status_with_retry "device_verification" "running" 90 "验证USB设备"
-        echo "检查USB设备..."
-        usb_output=$(lsusb)
-        echo "$usb_output"
-        echo "$usb_output" >> $LOG_FILE
+        echo "检查USB设备..." >> $LOG_FILE
         
-        if echo "$usb_output" | grep -q "1d50:614e"; then
-            send_status_with_retry "device_verification" "success" 100 "✅ 所有步骤完成！设备验证成功"
-            echo ""
-            echo "🎉 所有步骤完成！准备关机..."
+        # 实时检查USB设备
+        local usb_check_count=0
+        local max_usb_checks=10
+        local device_found=0
+        
+        while [ $usb_check_count -lt $max_usb_checks ] && [ $device_found -eq 0 ]; do
+            usb_output=$(lsusb)
+            echo "$usb_output" >> $LOG_FILE
             
-            # 发送最终成功状态
-            send_status_with_retry "shutdown" "success" 100 "系统将在5秒后关机"
+            # 实时上报USB检查结果
+            python3 $SEND_STATUS_SCRIPT "device_verification" "running" "90" "USB设备检查 $((usb_check_count + 1))/$max_usb_checks: $usb_output" || true
             
-            # 5秒倒计时
-            for i in {5..1}; do
-                echo "关机倒计时: $i 秒 (按 Ctrl+C 取消)"
-                sleep 1
-            done
-            
-            echo "正在关机..."
-            shutdown -h now
-            exit 0
-        else
-            send_status_with_retry "device_verification" "error" 90 "❌ 设备验证失败: 未找到目标设备"
-            echo "错误: 未检测到设备 1d50:614e"
-            echo "当前USB设备:"
-            lsusb
+            if echo "$usb_output" | grep -q "1d50:614e"; then
+                device_found=1
+                send_status_with_retry "device_verification" "success" 100 "✅ 设备验证成功 - 检测到目标设备 1d50:614e"
+                
+                echo ""
+                echo "🎉 所有步骤完成！准备关机..."
+                echo "🎉 所有步骤完成！准备关机..." >> $LOG_FILE
+                
+                # 发送最终成功状态
+                send_status_with_retry "shutdown" "success" 100 "所有步骤完成！系统将在5秒后关机"
+                
+                # 5秒倒计时
+                for i in {5..1}; do
+                    echo "关机倒计时: $i 秒 (按 Ctrl+C 取消)" >> $LOG_FILE
+                    python3 $SEND_STATUS_SCRIPT "shutdown" "success" "100" "关机倒计时: $i 秒 (按 Ctrl+C 取消)" || true
+                    sleep 1
+                done
+                
+                echo "正在关机..." >> $LOG_FILE
+                shutdown -h now
+                exit 0
+            else
+                usb_check_count=$((usb_check_count + 1))
+                sleep 2
+            fi
+        done
+        
+        if [ $device_found -eq 0 ]; then
+            send_status_with_retry "device_verification" "error" 90 "❌ 设备验证失败: 未找到目标设备 1d50:614e"
+            echo "错误: 未检测到设备 1d50:614e" >> $LOG_FILE
+            echo "当前USB设备:" >> $LOG_FILE
+            lsusb >> $LOG_FILE
         fi
     else
         send_status_with_retry "hid_flash" "error" 60 "HID烧录失败"
@@ -185,6 +243,15 @@ echo "   流程未完成"
 echo "   查看详细日志: tail -f $LOG_FILE"
 echo "   状态页面: http://192.168.101.239:8081"
 echo "========================================"
+
+# 记录到日志文件
+{
+    echo ""
+    echo "========================================"
+    echo "   流程未完成"
+    echo "   最后检查时间: $(date)"
+    echo "========================================"
+} >> $LOG_FILE
 
 # 发送最终错误状态
 send_status_with_retry "completed" "error" 100 "自动烧录流程未完成"

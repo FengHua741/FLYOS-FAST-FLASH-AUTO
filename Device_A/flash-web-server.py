@@ -25,6 +25,7 @@ initial_status = {
     "device_b_ip": None
 }
 
+# 全局状态变量，存储在内存中
 current_status = initial_status.copy()
 
 class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
@@ -56,7 +57,7 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header('Content-type', 'text/plain; charset=utf-8')
             self.end_headers()
-            log_text = "\n".join(current_status["log"][-50:])
+            log_text = "\n".join(current_status["log"])
             self.wfile.write(log_text.encode('utf-8'))
             
         elif path == '/reset':
@@ -170,6 +171,7 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             return False
 
     def reset_status(self):
+        """重置状态 - 清空日志和进度"""
         global current_status
         current_status = initial_status.copy()
         current_status["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -183,10 +185,23 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
         print("状态已重置")
 
     def update_status(self, data):
+        """更新状态 - 支持实时日志流"""
         global current_status
-        for key in data:
-            if key in current_status:
+        
+        # 更新基本状态信息
+        for key in ["step", "status", "progress", "device_info", "device_b_ip"]:
+            if key in data and data[key] is not None:
                 current_status[key] = data[key]
+        
+        # 处理日志更新 - 支持实时日志流
+        if "log" in data and data["log"] is not None:
+            # 如果是完整的日志数组，直接替换
+            if isinstance(data["log"], list) and len(data["log"]) > 0:
+                # 保留最新的500行日志，防止内存溢出
+                if len(data["log"]) > 500:
+                    current_status["log"] = data["log"][-500:]
+                else:
+                    current_status["log"] = data["log"]
         
         current_status["last_update"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
@@ -196,7 +211,9 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
         except:
             pass
         
-        print(f"状态更新: {data.get('step', 'unknown')}")
+        # 打印关键状态变化
+        if "step" in data:
+            print(f"状态更新: {data['step']} - {data.get('status', 'unknown')} - 进度: {data.get('progress', 0)}%")
 
     def load_template(self, template_name):
         """加载HTML模板文件"""
@@ -209,12 +226,16 @@ class FlashStatusHandler(http.server.BaseHTTPRequestHandler):
             return f"<h1>模板文件 {template_name} 未找到</h1>"
 
     def log_message(self, format, *args):
+        """静默日志，减少输出"""
         pass
 
 def start_server():
+    """启动HTTP服务器"""
     with socketserver.TCPServer(("", PORT), FlashStatusHandler) as httpd:
         print(f"Fly-Flash 状态服务器运行在 http://0.0.0.0:{PORT}")
+        print("实时日志流版本 - 支持智能轮询")
         print("按 Ctrl+C 停止服务器")
+        
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:

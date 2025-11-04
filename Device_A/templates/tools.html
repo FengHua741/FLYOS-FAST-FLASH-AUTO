@@ -154,6 +154,25 @@
             overflow-y: auto;
             display: none;
         }
+        .copy-notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 4px;
+            z-index: 1000;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            font-size: 14px;
+            animation: fadeInOut 2s ease-in-out;
+        }
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(-10px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-10px); }
+        }
         @media (max-width: 768px) {
             .tools-grid {
                 grid-template-columns: 1fr;
@@ -266,7 +285,7 @@
                     <div class="command-item">
                         <div class="command-text">sudo modprobe can && echo "您的内核支持CAN" || echo "您的内核不支持CAN"</div>
                         <div class="command-actions">
-                            <button class="btn btn-copy" onclick="copyCommand('sudo modprobe can && echo \"您的内核支持CAN\" || echo \"您的内核不支持CAN\"')">复制</button>
+                            <button class="btn btn-copy" onclick="copyCommand('无法使用')">复制</button>
                         </div>
                     </div>
                     <div class="command-item">
@@ -281,8 +300,20 @@
     </div>
 
     <script>
-        function copyCommand(command) {
-            // 创建临时textarea元素
+        // 使用现代 Clipboard API 重写复制功能
+        async function copyCommand(command) {
+            try {
+                await navigator.clipboard.writeText(command);
+                showNotification('✅ 命令已复制到剪贴板');
+            } catch (err) {
+                console.error('复制失败:', err);
+                // 降级方案：使用传统方法
+                fallbackCopyCommand(command);
+            }
+        }
+
+        // 传统复制方法作为降级方案
+        function fallbackCopyCommand(command) {
             const tempTextArea = document.createElement('textarea');
             tempTextArea.value = command;
             tempTextArea.style.position = 'fixed';
@@ -290,14 +321,11 @@
             tempTextArea.style.top = '0';
             document.body.appendChild(tempTextArea);
             
-            // 选中文本
             tempTextArea.select();
-            tempTextArea.setSelectionRange(0, 99999); // 对于移动设备
+            tempTextArea.setSelectionRange(0, 99999);
             
             try {
-                // 执行复制命令
                 const successful = document.execCommand('copy');
-                
                 if (successful) {
                     showNotification('✅ 命令已复制到剪贴板');
                 } else {
@@ -307,7 +335,6 @@
                 showNotification('❌ 复制失败: ' + err);
             }
             
-            // 清理临时元素
             document.body.removeChild(tempTextArea);
         }
 
@@ -442,33 +469,6 @@
             const notification = document.createElement('div');
             notification.className = 'copy-notification';
             notification.textContent = message;
-            
-            // 样式
-            notification.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: #28a745;
-                color: white;
-                padding: 12px 20px;
-                border-radius: 4px;
-                z-index: 1000;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                font-size: 14px;
-                animation: fadeInOut 2s ease-in-out;
-            `;
-            
-            // 添加动画样式
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes fadeInOut {
-                    0% { opacity: 0; transform: translateY(-10px); }
-                    10% { opacity: 1; transform: translateY(0); }
-                    90% { opacity: 1; transform: translateY(0); }
-                    100% { opacity: 0; transform: translateY(-10px); }
-                }
-            `;
-            document.head.appendChild(style);
             
             document.body.appendChild(notification);
             
