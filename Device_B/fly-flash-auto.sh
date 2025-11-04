@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# FlyOS-FAST Flash Auto 烧录脚本 - 实时日志流版本
+# FlyOS-FAST Flash Auto 烧录脚本 - 实时日志流版本（修复ANSI颜色代码）
 # 专为 FlyOS-FAST 系统设计，支持逐行实时日志上报
 
 # 配置
@@ -8,9 +8,15 @@ LOG_FILE="/data/FLYOS-FAST-FLASH-AUTO/Device_B/logs/fly-flash.log"
 SERVER_URL="http://192.168.101.239:8081/update"
 SEND_STATUS_SCRIPT="/data/FLYOS-FAST-FLASH-AUTO/Device_B/send-status.py"
 
+# ANSI 颜色代码过滤函数
+filter_ansi_colors() {
+    # 过滤 ANSI 颜色代码和控制字符
+    sed -r 's/\x1B\[[0-9;]*[mGK]//g' | sed 's/\r//g' | sed 's/\x1B//g' | tr -d '\000-\037'
+}
+
 # 清空旧日志
 echo "=== Fly-Flash 自动执行开始: $(date) ===" > $LOG_FILE
-echo "实时日志流版本 - 支持逐行上报" >> $LOG_FILE
+echo "实时日志流版本 - 支持逐行上报（ANSI颜色已过滤）" >> $LOG_FILE
 
 # 函数：发送状态到服务器（带重试）
 send_status_with_retry() {
@@ -19,9 +25,12 @@ send_status_with_retry() {
     local progress="$3"
     local message="$4"
     
+    # 过滤颜色代码
+    local clean_message=$(echo "$message" | filter_ansi_colors)
+    
     # 记录日志
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    local log_msg="$timestamp - $message"
+    local log_msg="$timestamp - $clean_message"
     echo "$log_msg" >> $LOG_FILE
     
     # 发送到状态服务器（最多重试2次）
@@ -40,7 +49,7 @@ send_status_with_retry() {
         fi
     done
     
-    echo "❌ 状态上报失败，跳过此状态" >> $LOG_FILE
+    echo "状态上报失败，跳过此状态" >> $LOG_FILE
     return 1
 }
 
@@ -69,14 +78,17 @@ run_command_realtime() {
     local success_found=0
     
     while IFS= read -r line; do
+        # 过滤颜色代码
+        clean_line=$(echo "$line" | filter_ansi_colors)
+        
         # 记录到日志文件
         local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-        echo "$timestamp - $line" >> $LOG_FILE
+        echo "$timestamp - $clean_line" >> $LOG_FILE
         
-        # 实时上报日志行
-        python3 $SEND_STATUS_SCRIPT "$step" "running" "$progress" "$line" || true
+        # 实时上报日志行（使用过滤后的内容）
+        python3 $SEND_STATUS_SCRIPT "$step" "running" "$progress" "$clean_line" || true
         
-        # 检查成功模式
+        # 检查成功模式（使用原始行进行模式匹配）
         if [[ $line == *"$success_pattern"* ]]; then
             success_found=1
         fi
@@ -121,23 +133,23 @@ check_network_connectivity() {
     
     while [ $attempt -le $max_attempts ]; do
         if ping -c 1 -W 2 192.168.101.239 &> /dev/null; then
-            echo "✅ 网络连接正常 (尝试 $attempt/$max_attempts)" >> $LOG_FILE
+            echo "网络连接正常 (尝试 $attempt/$max_attempts)" >> $LOG_FILE
             return 0
         else
-            echo "⏳ 网络连接检查中... ($attempt/$max_attempts)" >> $LOG_FILE
+            echo "网络连接检查中... ($attempt/$max_attempts)" >> $LOG_FILE
             sleep 2
             ((attempt++))
         fi
     done
     
-    echo "⚠️ 网络连接可能不稳定，继续执行但状态上报可能延迟" >> $LOG_FILE
+    echo "网络连接可能不稳定，继续执行但状态上报可能延迟" >> $LOG_FILE
     return 1
 }
 
 # 主程序
 echo "========================================"
 echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
-echo "   实时日志流版本"
+echo "   实时日志流版本（ANSI颜色已过滤）"
 echo "   开始时间: $(date)"
 echo "   状态服务器: http://192.168.101.239:8081"
 echo "========================================"
@@ -146,14 +158,14 @@ echo "========================================"
 {
     echo "========================================"
     echo "   Fly-Flash 自动刷写程序 (FlyOS-FAST)"
-    echo "   实时日志流版本"
+    echo "   实时日志流版本（ANSI颜色已过滤）"
     echo "   开始时间: $(date)"
     echo "   状态服务器: http://192.168.101.239:8081"
     echo "========================================"
 } >> $LOG_FILE
 
 # 立即发送初始状态
-send_status_with_retry "system_start" "running" 0 "系统启动 - 实时日志流版本"
+send_status_with_retry "system_start" "running" 0 "系统启动 - 实时日志流版本（ANSI颜色已过滤）"
 
 # 在后台检查网络连接
 check_network_connectivity &
@@ -192,18 +204,19 @@ if run_command_realtime \
         
         while [ $usb_check_count -lt $max_usb_checks ] && [ $device_found -eq 0 ]; do
             usb_output=$(lsusb)
-            echo "$usb_output" >> $LOG_FILE
+            clean_usb_output=$(echo "$usb_output" | filter_ansi_colors)
+            echo "$clean_usb_output" >> $LOG_FILE
             
             # 实时上报USB检查结果
-            python3 $SEND_STATUS_SCRIPT "device_verification" "running" "90" "USB设备检查 $((usb_check_count + 1))/$max_usb_checks: $usb_output" || true
+            python3 $SEND_STATUS_SCRIPT "device_verification" "running" "90" "USB设备检查 $((usb_check_count + 1))/$max_usb_checks: $clean_usb_output" || true
             
             if echo "$usb_output" | grep -q "1d50:614e"; then
                 device_found=1
-                send_status_with_retry "device_verification" "success" 100 "✅ 设备验证成功 - 检测到目标设备 1d50:614e"
+                send_status_with_retry "device_verification" "success" 100 "设备验证成功 - 检测到目标设备 1d50:614e"
                 
                 echo ""
-                echo "🎉 所有步骤完成！准备关机..."
-                echo "🎉 所有步骤完成！准备关机..." >> $LOG_FILE
+                echo "所有步骤完成！准备关机..."
+                echo "所有步骤完成！准备关机..." >> $LOG_FILE
                 
                 # 发送最终成功状态
                 send_status_with_retry "shutdown" "success" 100 "所有步骤完成！系统将在5秒后关机"
@@ -225,7 +238,7 @@ if run_command_realtime \
         done
         
         if [ $device_found -eq 0 ]; then
-            send_status_with_retry "device_verification" "error" 90 "❌ 设备验证失败: 未找到目标设备 1d50:614e"
+            send_status_with_retry "device_verification" "error" 90 "设备验证失败: 未找到目标设备 1d50:614e"
             echo "错误: 未检测到设备 1d50:614e" >> $LOG_FILE
             echo "当前USB设备:" >> $LOG_FILE
             lsusb >> $LOG_FILE
